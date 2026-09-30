@@ -15,9 +15,18 @@ android {
         versionName = "0.1-prototype"
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     buildFeatures {
         viewBinding = true
     }
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {
