@@ -21,6 +21,7 @@ class MainActivity : AppCompatActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private var original: Bitmap? = null
     private var enhanced: Bitmap? = null
+    private val aiEnhancer by lazy { AiImageEnhancer(applicationContext, worker) }
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) loadAndEnhance(uri)
@@ -56,25 +57,38 @@ class MainActivity : AppCompatActivity() {
                 val raw = contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it) }
                     ?: error("Could not decode image")
                 val scaled = downscaleForPrototype(raw, 2200)
-                val pair = ImageEnhancer.enhance(scaled)
                 original = scaled
-                enhanced = pair.first
-
-                runOnUiThread {
-                    binding.photoView.setImageBitmap(pair.first)
-                    binding.modeLabel.text = "After"
-                    binding.saveButton.isEnabled = true
-                    binding.analysisText.text = buildString {
-                        appendLine("Local analysis")
-                        appendLine("Mean brightness: %.1f".format(pair.second.meanLuma))
-                        appendLine("Tonal range: " + pair.second.lowPercentile + "–" + pair.second.highPercentile)
-                        appendLine("Exposure gain: %.2f".format(pair.second.exposureGain))
-                        appendLine("Shadow lift: %.3f".format(pair.second.shadowLift))
-                        appendLine("Highlight compression: %.3f".format(pair.second.highlightCompression))
-                        appendLine("Vibrance gain: %.2f".format(pair.second.saturationGain))
-                        append("Sharpen: %.2f".format(pair.second.sharpenAmount))
-                    }
-                }
+                aiEnhancer.enhance(
+                    bitmap = scaled,
+                    onStatus = { status ->
+                        runOnUiThread {
+                            binding.modeLabel.text = status
+                            binding.analysisText.text = "Engine: Google on-device Media Enhancement"
+                        }
+                    },
+                    onSuccess = { result ->
+                        enhanced = result
+                        runOnUiThread {
+                            binding.photoView.setImageBitmap(result)
+                            binding.modeLabel.text = "After · AI"
+                            binding.saveButton.isEnabled = true
+                            binding.analysisText.text =
+                                "Engine: Google on-device Media Enhancement\n" +
+                                "Tonemap: ON\nDeblur/denoise: ON\nUpscale: OFF"
+                        }
+                    },
+                    onFallback = { reason ->
+                        val pair = ImageEnhancer.enhance(scaled)
+                        enhanced = pair.first
+                        runOnUiThread {
+                            binding.photoView.setImageBitmap(pair.first)
+                            binding.modeLabel.text = "After · fallback"
+                            binding.saveButton.isEnabled = true
+                            binding.analysisText.text =
+                                "Engine: traditional fallback\nReason: " + reason
+                        }
+                    },
+                )
             } catch (t: Throwable) {
                 runOnUiThread {
                     binding.modeLabel.text = "Enhancement failed"
