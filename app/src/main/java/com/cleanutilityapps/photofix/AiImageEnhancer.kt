@@ -77,10 +77,11 @@ class AiImageEnhancer(
             bitmap.width,
             bitmap.height,
             EnhancementMode.BITMAP,
-            enableTonemap = true,
-            enableDeblurDenoise = true,
-            enableDenoiseOnly = false,
-            enableUpscale = false,
+            true,  // tonemapping
+            true,  // photo deblur + denoise
+            false, // video deblur + denoise
+            false, // photo upscale
+            false, // video upscale
         )
 
         val callback = object : EnhancementSessionCallback {
@@ -97,10 +98,15 @@ class AiImageEnhancer(
                     }
 
                     override fun onSurfaceProcessed(timestamp: Long) = Unit
+
+                    override fun onCancelled(statusCode: Int) {
+                        session.release()
+                        onFallback("AI processing cancelled with status " + statusCode)
+                    }
                 }
 
                 try {
-                    session.process(bitmap, session.defaultOptions, processCallback)
+                    session.process(bitmap, options, processCallback)
                 } catch (t: Throwable) {
                     session.release()
                     onFallback("AI processing failed: " + (t.message ?: t.javaClass.simpleName))
