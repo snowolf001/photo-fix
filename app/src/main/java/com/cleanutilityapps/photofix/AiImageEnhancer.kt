@@ -77,7 +77,7 @@ class AiImageEnhancer(
             bitmap.width,
             bitmap.height,
             EnhancementMode.BITMAP,
-            false, // tonemapping - disabled for natural exposure
+            true,  // tonemapping - strength is controlled by blending in the UI
             true,  // photo deblur + denoise
             false, // video deblur + denoise
             false, // photo upscale
